@@ -10,7 +10,7 @@ Parameters:
         Description: 'The Machine Image to be used. Please use an Ubuntu Machine Image Specific to your region. Default is set to an AMI
         in the us-west-2 region.'
         Type: String
-        Default: ami-0d1cd67c26f5fca19
+        Default: ami-0b37e9efc396e4c38
 
     InstanceType:
       Description: WebServer EC2 instance type
@@ -85,12 +85,12 @@ Resources:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
       VPCZoneIdentifier:
-      - Fn::ImportValue: 
-          !Sub "${EnvironmentName}-PRIV-NETS"
+         - Fn::ImportValue: !Sub "${EnvironmentName}-PRI1-SN" 
+         - Fn::ImportValue: !Sub "${EnvironmentName}-PRI2-SN" 
       LaunchConfigurationName:
         Ref: WebAppLaunchConfig
-      MinSize: '1'
-      MaxSize: '2'
+      MinSize: '4'
+      MaxSize: '6'
       TargetGroupARNs:
       - Ref: WebAppTargetGroup
 
@@ -160,6 +160,9 @@ Resources:
   
   Listener:
     Type: AWS::ElasticLoadBalancingV2::Listener
+    DependsOn:
+      - WebAppLB
+      - WebAppTargetGroup
     Properties:
       DefaultActions:
       - Type: forward
@@ -184,13 +187,16 @@ Resources:
 
   WebAppTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    DependsOn:
+      - WebAppLB
     Properties:
-      HealthCheckIntervalSeconds: 30
+      TargetType: instance
+      HealthCheckIntervalSeconds: 10
       HealthCheckPath: /
       HealthCheckProtocol: HTTP
-      HealthCheckTimeoutSeconds: 20
+      HealthCheckTimeoutSeconds: 5
       HealthyThresholdCount: 2
-      Port: 8080
+      Port: 80
       Protocol: HTTP
       UnhealthyThresholdCount: 5
       VpcId: 
@@ -211,18 +217,15 @@ Resources:
       SecurityGroups:
         - !Ref WebServerSecGroup
       UserData:
-        Fn::Base64:
-          Fn::Join:
-           - ''
-           - - "#!/bin/bash \n"
-             - "apt-get update -y \n"
-             - "apt-get install unzip awscli -y \n"
-             - "apt-get install apache2 -y \n"
-             - "systemctl start apache2.service \n"
-             - "cd /var/www/html \n "
-             - "aws s3 cp s3://udagram-jonas/website.zip . \n"
-             - "unzip -o website.zip \n"
-             
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          apt-get update -y
+          apt-get install unzip awscli -y
+          apt-get install apache2 -y
+          systemctl start apache2.service
+          cd /var/www/html
+          aws s3 cp s3://udacity-demo-1/udacity.zip .
+          unzip -o udacity.zip          
 Outputs:
   URL:
     Description: The URL of the website
