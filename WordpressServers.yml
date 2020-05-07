@@ -1,5 +1,5 @@
 Description: >
-    Jonas Hettwer / Udacity Project 2020
+    Jonas Hettwer / Wordpress Project 2020
 
 Parameters:
 
@@ -17,6 +17,13 @@ Parameters:
       Type: String
       Default: t3.medium
       ConstraintDescription: Must be a valid EC2 instance type greater than 4GB RAM.  
+
+    HostedZoneName:
+      Description: The route53 HostedZoneName. For example, "mydomain.com."  Don't forget the period at the end.
+      Type: String
+    Subdomain:
+      Description: The subdomain of the dns entry. For example, hello -> hello.mydomain.com, hello is the subdomain.
+      Type: String
 
 Resources:
   UdacityS3ReadOnlyEC2:
@@ -225,7 +232,23 @@ Resources:
           systemctl start apache2.service
           cd /var/www/html
           aws s3 cp s3://udacity-demo-1/udacity.zip .
-          unzip -o udacity.zip          
+          unzip -o udacity.zip     
+
+  DnsRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneName: !Ref 'HostedZoneName'
+      Comment: DNS name for my instance.
+      Name: !Join ['', [!Ref 'Subdomain', ., !Ref 'HostedZoneName']]
+      Type: CNAME
+      TTL: '900'
+      RecordSets:
+      - Name: example.com.
+        Type: A
+        AliasTarget:
+          HostedZoneId: !GetAtt 'WebAppLB.CanonicalHostedZoneID'
+          DNSName: !GetAtt 'WebAppLB.DNSName'
+
 Outputs:
   URL:
     Description: The URL of the website
